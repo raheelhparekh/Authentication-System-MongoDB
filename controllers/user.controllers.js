@@ -2,130 +2,89 @@ import User from "../models/User.models.js";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import nodemailer from "nodemailer";
+import { sendVerificationMail, sendResetPasswordEmail } from "../utils/sendMails.js";
 
 const registerUser = async (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({
-      message: "All field are required",
       success: false,
+      message: "All fields are required.",
     });
   }
 
   try {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({
-        message: "User already exists",
+      return res.status(409).json({
         success: false,
+        message: "User already exists.",
       });
     }
 
     const user = await User.create({ name, email, password });
-    // console.log(user);
 
     if (!user) {
-      return res.status(400).json({
-        message: "user not created",
+      return res.status(500).json({
         success: false,
+        message: "User registration failed.",
       });
     }
 
-    // creating token from crypto
     const token = crypto.randomBytes(32).toString("hex");
-    // console.log(token);
 
-    // save token in database
     user.verificationToken = token;
     await user.save();
 
-    console.log("Sending mail to:", user.email);
+    await sendVerificationMail(user.email, token);
 
-    try {
-      // send token as email to user using nodemailer
-      const transporter = nodemailer.createTransport({
-        host: process.env.MAILTRAP_HOST,
-        port: process.env.MAILTRAP_PORT,
-        secure: false, // upgrade later with STARTTLS
-        auth: {
-          user: process.env.MAILTRAP_USERNAME,
-          pass: process.env.MAILTRAP_PASSWORD,
-        },
-      });
-
-      const info = transporter.sendMail({
-        from: process.env.MAILTRAP_SENDEREMAIL, // sender address
-        to: user.email, // list of receivers
-        subject: "Verify your Email", // Subject line
-        text: `Please click on the following link ${process.env.BASE_URL}/api/v1/users/verify/${token}`,
-        html: "<b>Hello world?</b>", // html body
-      });
-
-      console.log("Email sent:", info.messageId);
-    } catch (error) {
-      console.error("Error sending email:", error);
-      console.error(
-        "Full error:",
-        JSON.stringify(error, Object.getOwnPropertyNames(error))
-      );
-      return res.status(500).json({
-        message: "Email not sent",
-        success: false,
-        error: error.message || error.toString(),
-      });
-    }
-    return res.status(200).json({
-      message: "User registered succesfully",
+    return res.status(201).json({
       success: true,
+      message: "User registered successfully. Please check your email for verification.",
     });
   } catch (error) {
-    return res.status(400).json({
-      message: "User not registered",
-      error,
+    return res.status(500).json({
       success: false,
+      message: "An error occurred while registering the user.",
+      error: error.message,
     });
   }
 };
 
 const verifyUser = async (req, res) => {
-  // get token from params
   const { token } = req.params;
 
   try {
     if (!token) {
       return res.status(400).json({
-        message: "Token not found/ Invalid",
         success: false,
+        message: "Token is missing or invalid.",
       });
     }
 
-    const validateUser = await User.findOne({ verificationToken: token });
-    if (!validateUser) {
-      return res.status(400).json({
-        message: "No user found with this token",
+    const user = await User.findOne({ verificationToken: token });
+    if (!user) {
+      return res.status(404).json({
         success: false,
+        message: "User with the given token not found.",
       });
     }
 
-    // setting isVerified to true
-    validateUser.isVerified = true;
+    user.isVerified = true;
+    user.verificationToken = undefined;
 
-    // remove verification token
-    validateUser.verificationToken = undefined;
-
-    await validateUser.save();
+    await user.save();
 
     return res.status(200).json({
-      message: " User verified succesfully",
       success: true,
+      message: "User verified successfully.",
     });
   } catch (error) {
-    return res.status(400).json({
-      message: "User not verified",
-      error,
+    return res.status(500).json({
       success: false,
+      message: "An error occurred while verifying the user.",
+      error: error.message,
     });
   }
 };
@@ -135,51 +94,59 @@ const login = async (req, res) => {
 
   if (!email || !password) {
     return res.status(400).json({
-      message: "All field are required",
       success: false,
+      message: "Email and password are required.",
     });
   }
 
   try {
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({
-        message: "User not found",
+      return res.status(404).json({
         success: false,
+        message: "User not found.",
       });
     }
 
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
-      return res.status(400).json({
-        message: "Incorrect Password",
+      return res.status(401).json({
         success: false,
+        message: "Incorrect password.",
       });
     }
+    res.clearCookie("token","")
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_SECRET_EXPIRY,
+    const accessToken = jwt.sign({ id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
     });
-    // console.log(token);
+    const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_TOKEN_SECRET, {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+    });
 
-    // sending token in cookie
+    user.refreshToken=refreshToken
+    await user.save()
+
     const cookieOptions = {
       httpOnly: true,
       secure: true,
     };
-    res.cookie("token", token, cookieOptions);
+
+    res.cookie("accessToken", accessToken, cookieOptions);
+    res.cookie("refreshToken", refreshToken, cookieOptions);
 
     return res.status(200).json({
-      message: "User logged in",
       success: true,
+      message: "Login successful.",
       user: {
         id: user._id,
       },
     });
   } catch (error) {
-    return res.status(400).json({
-      message: "User not logged in",
+    return res.status(500).json({
       success: false,
+      message: "An error occurred during login.",
+      error: error.message,
     });
   }
 };
@@ -188,132 +155,100 @@ const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
     if (!user) {
-      return res.status(400).json({
-        message: "User not found",
+      return res.status(404).json({
         success: false,
+        message: "User not found.",
       });
     }
 
     return res.status(200).json({
-      user,
-      message: "User found",
       success: true,
+      user,
+      message: "User profile retrieved successfully.",
     });
   } catch (error) {
     return res.status(500).json({
-      message: "Cannot find profile",
       success: false,
+      message: "An error occurred while fetching the user profile.",
+      error: error.message,
     });
   }
 };
 
 const logoutUser = async (req, res) => {
   try {
-    res.cookie("token", "");
+    res.cookie("accessToken", "",{ expires: new Date(0), httpOnly: true, secure: true });
+    res.cookie("refreshToken", "",{ expires: new Date(0), httpOnly: true, secure: true });
 
-    res.status(200).json({
-      message: "Logged out successfully",
+    return res.status(200).json({
       success: true,
+      message: "Logged out successfully.",
     });
   } catch (error) {
-    return res.status(400).json({
-      message: " Error occured while logging out",
+    return res.status(500).json({
       success: false,
-      error,
+      message: "An error occurred while logging out.",
+      error: error.message,
     });
   }
 };
 
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
+
   if (!email) {
     return res.status(400).json({
-      message: " email is required",
       success: false,
+      message: "Email is required.",
     });
   }
 
   try {
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({
-        message: "no user found with this email",
+      return res.status(404).json({
         success: false,
+        message: "No user found with this email.",
       });
     }
 
     const token = crypto.randomBytes(32).toString("hex");
-    console.log(token);
 
     user.resetPasswordToken = token;
     user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
 
-    console.log("Sending mail to:", user.email);
-
-    try {
-      // send token as email to user using nodemailer
-      const transporter = nodemailer.createTransport({
-        host: process.env.MAILTRAP_HOST,
-        port: process.env.MAILTRAP_PORT,
-        secure: false, // upgrade later with STARTTLS
-        auth: {
-          user: process.env.MAILTRAP_USERNAME,
-          pass: process.env.MAILTRAP_PASSWORD,
-        },
-      });
-
-      const info = transporter.sendMail({
-        from: process.env.MAILTRAP_SENDEREMAIL, // sender address
-        to: user.email, // list of receivers
-        subject: "Reset your password", // Subject line
-        text: `Please click on the following link to reset your password ${process.env.BASE_URL}/api/v1/users/reset-password/${token}`,
-        html: "<b>Reset Password</b>", // html body
-      });
-
-      console.log("Email sent:", info.messageId);
-    } catch (error) {
-      console.error("Error sending email:", error);
-      console.error(
-        "Full error:",
-        JSON.stringify(error, Object.getOwnPropertyNames(error))
-      );
-      return res.status(500).json({
-        message: "Email not sent",
-        success: false,
-        error: error.message || error.toString(),
-      });
-    }
+    await sendResetPasswordEmail(user.email, token);
 
     await user.save();
 
     return res.status(200).json({
-      message: " Link has been sent to reset your password",
       success: true,
+      message: "Password reset link has been sent to your email.",
     });
   } catch (error) {
     return res.status(500).json({
-      message: "some error occured in forgot password",
       success: false,
+      message: "An error occurred while sending the password reset link.",
+      error: error.message,
     });
   }
 };
 
 const resetPassword = async (req, res) => {
-  // get token from params
   const { token } = req.params;
   const { password } = req.body;
 
   if (!token) {
     return res.status(400).json({
-      message: "No token found",
       success: false,
+      message: "Token is missing.",
     });
   }
 
   if (!password) {
     return res.status(400).json({
-      message: "password cannot be empty",
       success: false,
+      message: "Password cannot be empty.",
     });
   }
 
@@ -325,8 +260,8 @@ const resetPassword = async (req, res) => {
 
     if (!user) {
       return res.status(400).json({
-        message: "Invalid user",
         success: false,
+        message: "Invalid or expired token.",
       });
     }
 
@@ -337,14 +272,14 @@ const resetPassword = async (req, res) => {
     await user.save();
 
     return res.status(200).json({
-      message: "password reset done",
       success: true,
+      message: "Password reset successfully.",
     });
   } catch (error) {
     return res.status(500).json({
-      message: "some error occurred while resetting password",
       success: false,
-      error,
+      message: "An error occurred while resetting the password.",
+      error: error.message,
     });
   }
 };
