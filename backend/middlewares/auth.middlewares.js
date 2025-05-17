@@ -47,7 +47,8 @@ export const isLoggedIn = async (req, res, next) => {
 
         const cookieOptions = {
           httpOnly: true,
-          secure: true
+          secure: true,
+          sameSite:"None"
         };
 
         res.cookie("accessToken", newAccessToken, cookieOptions);
@@ -94,7 +95,8 @@ export const isLoggedIn = async (req, res, next) => {
 
         const cookieOptions = {
           httpOnly: true,
-          secure: true
+          secure: true,
+          sameSite:"None"
         };
 
         res.cookie("accessToken", newAccessToken, cookieOptions);

@@ -130,6 +130,7 @@ const login = async (req, res) => {
     const cookieOptions = {
       httpOnly: true,
       secure: true,
+      sameSite: "None"
     };
 
     res.cookie("accessToken", accessToken, cookieOptions);

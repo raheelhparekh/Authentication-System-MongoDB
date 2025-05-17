@@ -15,7 +15,7 @@ dotenv.config({
 const app = express()
 
 app.use(cors({
-    origin:process.env.BASE_URL ,
+    origin:process.env.FRONTEND_URL,
     methods:["GET","POST","UPDATE","DELETE"],
     allowedHeaders:["Content-Type","Authorization"],
     credentials:true
