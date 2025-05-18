@@ -14,13 +14,13 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
-        <Route path="/api/v1/users/" element={<App />} />
-        <Route path="/api/v1/users/login" element={<Login />} />
-        <Route path="/api/v1/users/api/signup" element={<Signup />} />
+        <Route path="/" element={<App />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
         <Route path="/api/v1/users/verify/:token" element={<Verifyemail />} />
         <Route path="/api/v1/users/reset-password/:token" element={<Resetpassword />} />
-        <Route path="/api/v1/users/forgot-password" element={<Forgotpassword />} />
-        <Route path="/api/v1/users/logout" element={<Logout />} />
+        <Route path="/forgot-password" element={<Forgotpassword />} />
+        <Route path="/logout" element={<Logout />} />
         <Route path="*" element={<h1>404 Not Found</h1>} />
       </Routes>
     </BrowserRouter>
