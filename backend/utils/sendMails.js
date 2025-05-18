@@ -18,7 +18,7 @@ const sendVerificationMail = async (email, token) => {
       from: process.env.MAILTRAP_SENDEREMAIL, // sender address
       to: email, // list of receivers
       subject: "Email Verification - Action Required", // Subject line
-      text: `Hello,\n\nPlease verify your email by clicking the following link: ${process.env.BASE_URL}/api/v1/users/verify/${token}\n\nIf you didn't request this, please ignore this email.`,
+      text: `Hello,\n\nPlease verify your email by clicking the following link: ${process.env.FRONTEND_URL}/api/v1/users/verify/${token}\n\nIf you didn't request this, please ignore this email.`,
       html: `
         <html>
           <head>
@@ -32,7 +32,7 @@ const sendVerificationMail = async (email, token) => {
             <h2>Email Verification</h2>
             <p>Hello,</p>
             <p>Please verify your email by clicking the button below:</p>
-            <a href="${process.env.BASE_URL}/api/v1/users/verify/${token}" class="button">Verify Email</a>
+            <a href="${process.env.FRONTEND_URL}/api/v1/users/verify/${token}" class="button">Verify Email</a>
             <p>If you didn't request this, please ignore this email.</p>
             <p class="footer">This email was sent by [Your Company Name].</p>
           </body>
@@ -65,7 +65,7 @@ const sendResetPasswordEmail = async (email, token) => {
       from: process.env.MAILTRAP_SENDEREMAIL, // sender address
       to: email, // list of receivers
       subject: "Password Reset Request", // Subject line
-      text: `Hello,\n\nYou requested to reset your password. Click the link below to reset it: ${process.env.BASE_URL}/api/v1/users/reset-password/${token}\n\nIf you didn't request this, please ignore this email.`,
+      text: `Hello,\n\nYou requested to reset your password. Click the link below to reset it: ${process.env.FRONTEND_URL}/api/v1/users/reset-password/${token}\n\nIf you didn't request this, please ignore this email.`,
       html: `
         <html>
           <head>
@@ -79,7 +79,7 @@ const sendResetPasswordEmail = async (email, token) => {
             <h2>Password Reset Request</h2>
             <p>Hello,</p>
             <p>You requested to reset your password. Click the button below to reset it:</p>
-            <a href="${process.env.BASE_URL}/api/v1/users/reset-password/${token}" class="button">Reset Password</a>
+            <a href="${process.env.FRONTEND_URL}/api/v1/users/reset-password/${token}" class="button">Reset Password</a>
             <p>If you didn't request this, please ignore this email.</p>
             <p class="footer">This email was sent by [Your Company Name].</p>
           </body>
